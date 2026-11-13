@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAF | Divisi dan Monitoring Kinerja Karyawan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --navy: #002D72; --navy-deep: #001C48; --gold: #FDB913; --mist: #F4F6F9;
+    --line: #D9DFE8; --ink: #1B2433; --muted: #5F6B7E;
+  }
+  body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: var(--mist); color: var(--ink); }
+  [hidden] { display: none !important; }
+  .num { font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+  .tab { color: #B9C7E3; border-bottom: 4px solid transparent; white-space: nowrap; }
+  .tab:hover { color: #fff; }
+  .tab[aria-selected="true"] { color: #fff; border-bottom-color: var(--gold); }
+
+  .kartu { background: #fff; border: 1px solid var(--line); border-radius: 4px; text-align: left; overflow: hidden; position: relative; }
+  .kartu::before { content: ''; position: absolute; inset: 0 auto auto 0; width: 36px; height: 4px; background: var(--gold); z-index: 1; }
+  .kartu:hover { border-color: var(--navy); }
+
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; }
+  .seg i { height: 6px; background: #DCE2EC; border-radius: 1px; transition: background-color .25s; }
+  .seg i.on { background: var(--navy); }
+  .seg.besar i { height: 10px; }
+
+  .badge { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 3px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+  .badge.selesai { background: #E1F3E8; color: #0C6B36; }
+  .badge.belum { background: #FFF1C7; color: #8A5A00; }
+
+  .tugas { border-top: 1px solid var(--line); }
+  .tugas:has(input:checked) .judul { color: var(--muted); }
+  .tugas input { width: 20px; height: 20px; accent-color: var(--navy); flex: none; margin-top: 2px; cursor: pointer; }
+</style>
+<script>
+  tailwind.config = { theme: { extend: { colors: { navy: '#002D72', gold: '#FDB913' } } } };
+</script>
+</head>
+<body class="min-h-screen">
+
+<header class="bg-white border-b border-[var(--line)]">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center gap-x-8 gap-y-3">
+    <a href="#" class="flex items-center gap-3" aria-label="Bussan Auto Finance">
+      <svg width="76" height="40" viewBox="0 0 76 40" role="img" aria-hidden="true">
+        <text x="0" y="31" font-family="Plus Jakarta Sans, Arial Black, sans-serif" font-weight="800" font-size="38" letter-spacing="-2" fill="#002D72">BAF</text>
+        <path d="M2 36h72" stroke="#FDB913" stroke-width="4"/>
+      </svg>
+      <span class="text-sm font-semibold text-navy leading-tight">Bussan<br>Auto Finance</span>
+    </a>
+    <h1 class="text-lg font-bold text-navy sm:ml-auto">Divisi &amp; Monitoring Kinerja Karyawan</h1>
+    <label class="w-full sm:w-64">
+      <span class="sr-only">Cari nama karyawan</span>
+      <input id="cari" type="search" autocomplete="off" placeholder="Cari nama karyawan"
+        class="w-full border border-[var(--line)] rounded px-3 py-2 text-sm bg-[var(--mist)] focus:bg-white focus:border-navy">
+    </label>
+  </div>
+</header>
+
+<nav class="bg-navy" aria-label="Divisi">
+  <div id="tab" role="tablist" class="max-w-7xl mx-auto px-4 flex overflow-x-auto gap-1"></div>
+</nav>
+
+<main class="max-w-7xl mx-auto px-4 py-6">
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-5">
+    <div>
+      <h2 id="judulDivisi" class="text-2xl font-extrabold text-navy"></h2>
+      <p id="ketDivisi" class="text-sm text-[var(--muted)]"></p>
+    </div>
+    <p id="ringkas" class="text-sm text-[var(--muted)] sm:text-right"></p>
+  </div>
+  <section id="grid" class="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></section>
+  <p id="kosong" hidden class="py-16 text-center text-[var(--muted)]">Tidak ada karyawan dengan nama itu. Periksa ejaan atau hapus kata kunci.</p>
+</main>
+
+<div id="modal" hidden class="fixed inset-0 z-50 md:p-8 flex items-center justify-center"></div>
+
+<script>
+const DIVISI = [
+  { id: 'tele', nama: 'Tele Collection', ket: 'Penagihan lewat telepon dan WhatsApp untuk nasabah DPD awal.',
+    tugas: [
+      ['Follow up nasabah DPD 1-30', 'Antrean 38 nasabah', '08:10'],
+      ['Follow up nasabah DPD 31-60', 'Antrean 24 nasabah', '09:05'],
+      ['Update status janji bayar (PTP)', 'Input ke sistem collection', '10:30'],
+      ['Kirim reminder jatuh tempo via WhatsApp', 'Jatuh tempo 3 hari ke depan', '11:15'],
+      ['Eskalasi nasabah tidak responsif ke Field', 'Setelah 3 kali percobaan hubung', '13:20'],
+      ['Rekap laporan harian', 'Kirim ke Team Leader sebelum 16:30', '15:45']],
+    staf: [
+      ['Rina Kusumawati', 'Senior Tele Collector', '10412', 5, 94, '40 panggilan', 2018],
+      ['Dimas Pratama', 'Tele Collector', '20877', 3, 81, '35 panggilan', 2023],
+      ['Siti Nurhaliza', 'Team Leader Tele Collection', '10133', 6, 97, '30 panggilan', 2016],
+      ['Agus Setiawan', 'Tele Collector', '21390', 2, 72, '35 panggilan', 2025],
+      ['Putri Anggraini', 'Senior Tele Collector', '10688', 4, 88, '40 panggilan', 2020],
+      ['Bambang Hartono', 'Tele Collector', '21045', 1, 65, '35 panggilan', 2024]] },
+  { id: 'field', nama: 'Field Collection', ket: 'Kunjungan lapangan untuk nasabah menunggak lebih dari 60 hari.',
+    tugas: [
+      ['Kunjungan nasabah DPD 61-90', 'Sesuai rute hari ini', '09:20'],
+      ['Verifikasi alamat dan kondisi unit', 'Foto unit wajib', '10:40'],
+      ['Negosiasi penyelesaian tunggakan', 'Catat hasil di form kunjungan', '12:10'],
+      ['Dokumentasi foto kunjungan', 'Unggah lewat aplikasi lapangan', '13:30'],
+      ['Setor hasil tagih ke kasir cabang', 'Sebelum 15:00', '14:50'],
+      ['Laporan kunjungan harian', 'Kirim ke Koordinator Lapangan', '16:15']],
+    staf: [
+      ['Hendra Gunawan', 'Senior Field Collector', '10290', 4, 90, '8 kunjungan', 2019],
+      ['Yoga Saputra', 'Field Collector', '20954', 2, 74, '6 kunjungan', 2024],
+      ['Eko Wahyudi', 'Koordinator Lapangan', '10077', 5, 93, '10 kunjungan', 2017],
+      ['Fajar Ramadhan', 'Field Collector', '20611', 3, 80, '6 kunjungan', 2023]] },
+  { id: 'cs', nama: 'Customer Service', ket: 'Layanan hotline, tiket keluhan, dan administrasi nasabah.',
+    tugas: [
+      ['Balas tiket keluhan nasabah', 'Prioritaskan tiket lebih dari 24 jam', '08:30'],
+      ['Proses permintaan pelunasan dipercepat', 'Cek simulasi denda dulu', '09:50'],
+      ['Perbarui data nasabah', 'Alamat dan nomor kontak', '11:00'],
+      ['Layani telepon masuk hotline', 'Sesuai jadwal shift', '12:30'],
+      ['Kirim surat keterangan lunas', 'Format PDF resmi', '14:10'],
+      ['Rekap kepuasan pelanggan', 'Hasil survei CSAT hari ini', '16:00']],
+    staf: [
+      ['Dewi Lestari', 'Senior Customer Service', '10355', 6, 98, '50 tiket', 2020],
+      ['Maya Sari', 'Customer Service Officer', '20418', 4, 86, '45 tiket', 2022],
+      ['Rizky Firmansyah', 'Customer Service Officer', '20792', 3, 78, '45 tiket', 2024],
+      ['Anisa Rahmawati', 'Team Leader CS', '10201', 5, 92, '40 tiket', 2018]] },
+  { id: 'ca', nama: 'Credit Analyst', ket: 'Analisis kelayakan dan rekomendasi pembiayaan kendaraan.',
+    tugas: [
+      ['Analisis kelayakan aplikasi baru', 'Antrean aplikasi hari ini', '09:00'],
+      ['Verifikasi slip gaji dan mutasi rekening', 'Minimal 3 bulan terakhir', '10:15'],
+      ['Cek SLIK pemohon', 'Catat kolektibilitas', '11:30'],
+      ['Survei kondisi usaha pemohon', 'Khusus pemohon wiraswasta', '13:45'],
+      ['Tinjau kelengkapan dokumen', 'Cocokkan dengan checklist', '14:55'],
+      ['Susun memo rekomendasi kredit', 'Untuk komite kredit', '16:20']],
+    staf: [
+      ['Ahmad Fauzi', 'Senior Credit Analyst', '10166', 3, 89, '12 aplikasi', 2017],
+      ['Laras Wulandari', 'Credit Analyst', '20533', 5, 91, '10 aplikasi', 2022],
+      ['Rudi Hermawan', 'Credit Analyst', '21102', 2, 70, '10 aplikasi', 2025],
+      ['Nadia Permata', 'Credit Analyst', '20876', 4, 85, '10 aplikasi', 2023]] }
+];
+
+// Ubah baris data mentah jadi objek karyawan; tiap task punya status sendiri.
+const KARYAWAN = DIVISI.flatMap(d => d.staf.map(([nama, jabatan, nik, selesai, skor, target, masuk]) => ({
+  id: `${d.id}-${nik}`, divisi: d.id, nama, jabatan, nik: `BAF-${nik}`, skor, target, masuk,
+  tugas: d.tugas.map(([judul, catatan, jam], i) => ({ judul, catatan, selesai: i < selesai, jam: i < selesai ? jam : null }))
+})));
+
+const state = { divisi: 'tele', kata: '', terbuka: null, pemicu: null };
+const $ = (sel) => document.querySelector(sel);
+const gerakKurang = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const jumlahSelesai = (k) => k.tugas.filter(t => t.selesai).length;
+const persen = (k) => Math.round(jumlahSelesai(k) / k.tugas.length * 100);
+const rata = (daftar) => daftar.length ? Math.round(daftar.reduce((s, k) => s + persen(k), 0) / daftar.length) : 0;
+const dataDivisi = (id) => DIVISI.find(d => d.id === id);
+const cariKaryawan = (id) => KARYAWAN.find(k => k.id === id);
+const tanggal = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+
+const bar = (k, besar = false) =>
+  `<div class="seg ${besar ? 'besar' : ''}" aria-hidden="true">${k.tugas.map(t => `<i class="${t.selesai ? 'on' : ''}"></i>`).join('')}</div>`;
+
+// Foto default sampai foto asli tersedia: isi properti `foto` pada data karyawan.
+const LATAR = ['#CFD9EA', '#DAE1EC', '#C8D5E8', '#E0E5EE'];
+function foto(k) {
+  if (k.foto) return k.foto;
+  const latar = LATAR[parseInt(k.nik.slice(-1), 10) % LATAR.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="${latar}"/>
+    <circle cx="100" cy="82" r="34" fill="#002D72" opacity=".8"/><path d="M30 200c0-46 31-74 70-74s70 28 70 74z" fill="#002D72" opacity=".8"/></svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+function renderTab() {
+  $('#tab').innerHTML = DIVISI.map(d => {
+    const anggota = KARYAWAN.filter(k => k.divisi === d.id);
+    const aktif = d.id === state.divisi && !state.kata;
+    return `<button role="tab" data-divisi="${d.id}" aria-selected="${aktif}" class="tab px-4 pt-3 pb-2 text-left">
+      <span class="block font-bold text-[15px]">${d.nama}</span>
+      <span class="block text-xs opacity-80 num">${anggota.length} karyawan, ${rata(anggota)}% selesai</span></button>`;
+  }).join('');
+}
+
+function renderGrid() {
+  const kata = state.kata.trim().toLowerCase();
+  const daftar = kata ? KARYAWAN.filter(k => k.nama.toLowerCase().includes(kata)) : KARYAWAN.filter(k => k.divisi === state.divisi);
+  const d = dataDivisi(state.divisi);
+  $('#judulDivisi').textContent = kata ? `Hasil untuk "${state.kata.trim()}"` : d.nama;
+  $('#ketDivisi').textContent = kata ? `${daftar.length} karyawan di semua divisi` : d.ket;
+  $('#ringkas').innerHTML = `${tanggal}<br>Rata-rata task selesai <b class="text-navy num">${rata(daftar)}%</b>`;
+  $('#kosong').hidden = daftar.length > 0;
+
+  $('#grid').innerHTML = daftar.map(k => `
+    <button class="kartu" data-id="${k.id}">
+      <img src="${foto(k)}" alt="Foto ${k.nama}" class="w-full aspect-[5/4] object-cover block">
+      <div class="p-3.5">
+        <div class="font-bold text-navy leading-snug">${k.nama}</div>
+        <div class="text-sm text-[var(--muted)]">${k.jabatan}</div>
+        ${kata ? `<div class="text-xs text-[var(--muted)] mt-0.5">${dataDivisi(k.divisi).nama}</div>` : ''}
+        <div class="mt-3">${bar(k)}</div>
+        <div class="flex justify-between mt-2 text-sm num">
+          <span class="text-[var(--muted)]">${jumlahSelesai(k)} dari ${k.tugas.length} task</span>
+          <b class="text-navy">${persen(k)}%</b>
+        </div>
+      </div>
+    </button>`).join('');
+}
+
+function render() { renderTab(); renderGrid(); }
+
+/* ---------- Detail karyawan ---------- */
+
+function barisTugas(t, i) {
+  return `<li class="tugas">
+    <label class="flex items-start gap-3 py-3 cursor-pointer">
+      <span class="w-12 pt-0.5 text-sm text-[var(--muted)] num flex-none">${t.jam ?? '-'}</span>
+      <input type="checkbox" data-i="${i}" ${t.selesai ? 'checked' : ''}>
+      <span class="flex-1 min-w-0">
+        <span class="judul block font-semibold">${t.judul}</span>
+        <span class="block text-sm text-[var(--muted)]">${t.catatan}</span>
+      </span>
+      ${t.selesai
+        ? `<span class="badge selesai"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="m4 12 5 5 11-12"/></svg>Selesai</span>`
+        : `<span class="badge belum"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Belum Selesai</span>`}
+    </label></li>`;
+}
+
+function isiModal(k) {
+  const d = dataDivisi(k.divisi);
+  const fakta = [['NIK', k.nik], ['Divisi', d.nama], ['Bergabung', k.masuk], ['Target harian', k.target]];
+  $('#modal').innerHTML = `
+    <div id="latar" class="absolute inset-0 bg-[var(--navy-deep)]/75"></div>
+    <div id="panel" role="dialog" aria-modal="true" aria-labelledby="mNama"
+         class="relative bg-white w-full h-full md:h-auto md:max-h-full max-w-6xl overflow-y-auto md:flex md:rounded">
+      <aside class="bg-navy text-white p-6 md:w-[22rem] flex-none">
+        <img src="${foto(k)}" alt="Foto ${k.nama}" class="w-full max-w-[18rem] md:max-w-none mx-auto aspect-square object-cover rounded-sm block">
+        <h3 id="mNama" class="text-2xl font-extrabold mt-5 leading-tight">${k.nama}</h3>
+        <p class="text-gold font-semibold">${k.jabatan}</p>
+        <dl class="mt-5 text-sm">
+          ${fakta.map(([a, b]) => `<div class="flex justify-between gap-4 py-2 border-t border-white/15"><dt class="text-[#B9C7E3]">${a}</dt><dd class="font-semibold text-right num">${b}</dd></div>`).join('')}
+        </dl>
+        <div class="border-t border-white/15 pt-4 mt-1 flex items-baseline gap-2">
+          <span class="text-5xl font-extrabold text-gold num leading-none">${k.skor}</span>
+          <span class="text-sm text-[#B9C7E3]">skor performa dari 100</span>
+        </div>
+      </aside>
+      <section class="flex-1 min-w-0 p-6 md:p-8">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h4 class="text-xl font-extrabold text-navy">Task harian</h4>
+            <p class="text-sm text-[var(--muted)]">${tanggal}. Centang task untuk menandainya selesai.</p>
+          </div>
+          <button id="tutup" class="flex-none border border-[var(--line)] rounded px-3 py-1.5 text-sm font-semibold hover:border-navy hover:text-navy">Tutup</button>
+        </div>
+        <div class="mt-5">
+          <div class="flex justify-between items-baseline mb-2 num">
+            <span id="mHitung" class="text-sm text-[var(--muted)]"></span>
+            <b id="mPersen" class="text-2xl text-navy"></b>
+          </div>
+          <div id="mBar"></div>
+        </div>
+        <ul id="mTugas" class="mt-5 border-b border-[var(--line)]">${k.tugas.map(barisTugas).join('')}</ul>
+      </section>
+    </div>`;
+  perbaruiRingkasan(k);
+}
+
+function perbaruiRingkasan(k) {
+  $('#mHitung').textContent = `${jumlahSelesai(k)} dari ${k.tugas.length} task selesai`;
+  $('#mPersen').textContent = `${persen(k)}%`;
+  $('#mBar').innerHTML = bar(k, true);
+}
+
+// Zoom dari posisi kartu ke panel (dan sebaliknya saat ditutup).
+function zoom(dariKartu, arah) {
+  const panel = $('#panel'), latar = $('#latar');
+  const kartu = dariKartu.getBoundingClientRect(), p = panel.getBoundingClientRect();
+  const awal = {
+    transform: `translate(${kartu.left + kartu.width / 2 - (p.left + p.width / 2)}px, ${kartu.top + kartu.height / 2 - (p.top + p.height / 2)}px) scale(${kartu.width / p.width})`,
+    opacity: 0
+  };
+  const akhir = { transform: 'none', opacity: 1 };
+  const opsi = { duration: gerakKurang ? 0 : 340, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' };
+  const frames = arah === 'buka' ? [awal, akhir] : [akhir, awal];
+  latar.animate(frames.map(f => ({ opacity: f.opacity })), opsi);
+  return panel.animate(frames, opsi).finished;
+}
+
+function bukaDetail(id, pemicu) {
+  const k = cariKaryawan(id);
+  state.terbuka = id; state.pemicu = pemicu;
+  isiModal(k);
+  $('#modal').hidden = false;
+  document.body.style.overflow = 'hidden';
+  zoom(pemicu, 'buka');
+  $('#tutup').focus({ preventScroll: true });
+}
+
+async function tutupDetail() {
+  if (!state.terbuka) return;
+  const id = state.terbuka;
+  state.terbuka = null;
+  // kartu sudah dirender ulang saat task berubah, jadi ambil elemen terbaru
+  const kartu = document.querySelector(`.kartu[data-id="${id}"]`) ?? state.pemicu;
+  await zoom(kartu, 'tutup');
+  $('#modal').hidden = true;
+  document.body.style.overflow = '';
+  kartu.focus({ preventScroll: true });
+}
+
+function ubahTugas(i, selesai) {
+  const k = cariKaryawan(state.terbuka), t = k.tugas[i];
+  t.selesai = selesai;
+  t.jam = selesai ? new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':') : null;
+  $('#mTugas').innerHTML = k.tugas.map(barisTugas).join('');
+  perbaruiRingkasan(k);
+  render();
+  $('#mTugas').querySelector(`[data-i="${i}"]`).focus({ preventScroll: true });
+}
+
+/* ---------- Event ---------- */
+
+$('#tab').addEventListener('click', (e) => {
+  const tombol = e.target.closest('[data-divisi]');
+  if (!tombol) return;
+  state.divisi = tombol.dataset.divisi;
+  state.kata = ''; $('#cari').value = '';
+  render();
+});
+
+$('#cari').addEventListener('input', (e) => { state.kata = e.target.value; render(); });
+
+$('#grid').addEventListener('click', (e) => {
+  const kartu = e.target.closest('.kartu');
+  if (kartu) bukaDetail(kartu.dataset.id, kartu);
+});
+
+$('#modal').addEventListener('click', (e) => {
+  if (e.target.id === 'latar' || e.target.closest('#tutup')) tutupDetail();
+});
+$('#modal').addEventListener('change', (e) => {
+  if (e.target.matches('input[data-i]')) ubahTugas(+e.target.dataset.i, e.target.checked);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') tutupDetail(); });
+
+render();
+</script>
+</body>
+</html>
